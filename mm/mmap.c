@@ -10,9 +10,6 @@
 #include <linux/slab.h>
 #include <linux/backing-dev.h>
 #include <linux/mm.h>
-#ifdef CONFIG_PER_THREAD_VMA_CACHE
-#include <linux/vmacache.h>
-#endif
 #include <linux/shm.h>
 #include <linux/mman.h>
 #include <linux/pagemap.h>
@@ -39,7 +36,6 @@
 #include <linux/sched/sysctl.h>
 #include <linux/notifier.h>
 #include <linux/memory.h>
-#include <linux/proc_fs.h>
 
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -701,13 +697,8 @@ __vma_unlink(struct mm_struct *mm, struct vm_area_struct *vma,
 	prev->vm_next = next = vma->vm_next;
 	if (next)
 		next->vm_prev = prev;
-#ifdef CONFIG_PER_THREAD_VMA_CACHE
-	/* Kill the cache */
-	vmacache_invalidate(mm);
-#else
 	if (mm->mmap_cache == vma)
 		mm->mmap_cache = prev;
-#endif
 }
 
 /*
@@ -2000,125 +1991,14 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 
 EXPORT_SYMBOL(get_unmapped_area);
 
-#ifdef CONFIG_PROC_FS
-static ssize_t write_vmacache_hit_reset(struct file *file, const char __user *buf,
-				   size_t count, loff_t *ppos)
-{
-	if (count) {
-		char c;
-
-		if (get_user(c, buf))
-			return -EFAULT;
-		if('1' == c) {
-			total_no_of_find_vma = 0;
-			vma_cache_found	= 0;
-		}
-	}
-
-	return count;
-}
-
-static const struct file_operations proc_vmacache_hit_reset_operations = {
-	.write		= write_vmacache_hit_reset,
-	.llseek		= noop_llseek,
-};
-
-static int vmacache_hit_proc_show(struct seq_file *m, void *v)
-{
-	if(total_no_of_find_vma > 0)
-		seq_printf(m,
-					"vma_cache_hit %u\n"
-					"Percentage    %u\n"
-					,vma_cache_found
-					,(vma_cache_found * 100)/total_no_of_find_vma);
-	else
-		seq_printf(m, "0\n");
-	return;
-}
-
-static int vmacache_hit_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, vmacache_hit_proc_show, NULL);
-}
-
-static const struct file_operations vmacache_hit_proc_fops = {
-	.open		= vmacache_hit_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-
-static int __init proc_vmacache_hit_init(void)
-{
-	struct proc_dir_entry *vmacache_parent;
-	vmacache_parent = proc_mkdir("vmacache",NULL);
-
-	if (!proc_create("vmacache-hit", S_IRUSR, vmacache_parent,
-			&vmacache_hit_proc_fops))
-		pr_err("Failed to register vmacache-hit proc interface\n");
-
-	if (!proc_create("vmacache-hit-reset", S_IWUSR, vmacache_parent,
-			 &proc_vmacache_hit_reset_operations))
-		pr_err("Failed to register vmacache-hit-reset proc interface\n");
-
-	return 0;
-}
-
-module_init(proc_vmacache_hit_init);
-
-#endif
-
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
 struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 {
 	struct vm_area_struct *vma = NULL;
-#ifdef CONFIG_PER_THREAD_VMA_CACHE
-	struct rb_node *rb_node = NULL;
 
-#ifdef CONFIG_PROC_FS
-	total_no_of_find_vma++;
-#endif
-
-	/* Check the cache first. */
-	vma = vmacache_find(mm, addr);
-	if (likely(vma)) {
-#ifdef CONFIG_PROC_FS
-		vma_cache_found++;
-#endif
-		return vma;
-	}
-
-	rb_node = mm->mm_rb.rb_node;
-	vma = NULL;
-	while (rb_node) {
-		struct vm_area_struct *tmp;
-
-		tmp = rb_entry(rb_node, struct vm_area_struct, vm_rb);
-
-		if (tmp->vm_end > addr) {
-			vma = tmp;
-			if (tmp->vm_start <= addr)
-				break;
-			rb_node = rb_node->rb_left;
-		} else
-			rb_node = rb_node->rb_right;
-	}
-
-	if (vma)
-		vmacache_update(addr, vma);
-#else
-
-#ifdef CONFIG_PROC_FS
-	total_no_of_find_vma++;
-#endif
 	/* Check the cache first. */
 	/* (Cache hit rate is typically around 35%.) */
 	vma = ACCESS_ONCE(mm->mmap_cache);
-
-	if (vma && (vma->vm_end > addr) && (vma->vm_start <= addr)) {
-		vma_cache_found++;
-	}
-
 	if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
 		struct rb_node *rb_node;
 
@@ -2142,7 +2022,6 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 		if (vma)
 			mm->mmap_cache = vma;
 	}
-#endif
 	return vma;
 }
 
@@ -2515,7 +2394,6 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 		mm->highest_vm_end = prev ? prev->vm_end : 0;
 	tail_vma->vm_next = NULL;
 	mm->mmap_cache = NULL;		/* Kill the cache. */
-#endif
 }
 
 /*
