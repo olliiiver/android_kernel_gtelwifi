@@ -48,7 +48,7 @@
 #include "ist30xx_cmcs.h"
 #endif
 
-#define TOUCH_BOOSTER	1
+#define TOUCH_BOOSTER	0
 
 #if TOUCH_BOOSTER
 #include <linux/cpufreq.h>
