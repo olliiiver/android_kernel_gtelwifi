@@ -299,7 +299,9 @@ dtb-$(CONFIG_MACH_GTELWIFI) += sprd-scx35_gtelwifi_rev02.dtb \
 				sprd-scx35_gtelwifi_rev04.dtb \
 				sprd-scx35_gtelwifi_rev05.dtb \
 				sprd-scx35_gtelwifi_rev06.dtb \
-				sprd-scx35_gtelwifi_rev09.dtb
+				sprd-scx35_gtelwifi_rev09.dtb \
+				sprd-scx35_gtelwifi_rev10.dtb \
+				sprd-scx35_gtelwifi_rev11.dtb
 
 endif
 ifeq ($(CONFIG_MACH_GOYAVEWIFI_SEA_XTC),y)
