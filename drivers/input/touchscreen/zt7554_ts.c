@@ -17,6 +17,10 @@
 #include "zt7554_ts.h"
 #include "zinitix_touch_t560.h"
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
+
 u32 BUTTON_MAPPING_KEY[MAX_SUPPORTED_BUTTON_NUM] = {KEY_RECENT, KEY_BACK};
 static int m_tsp_burst_mode;
 
@@ -1413,6 +1417,9 @@ static void zt7554_ts_late_resume(struct early_suspend *h)
 {
 	struct zt7554_ts_info *info = misc_info;
 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	if (!dt2w_switch) {
+#endif
 	if (!info)
 		return;
 
@@ -1431,6 +1438,10 @@ static void zt7554_ts_late_resume(struct early_suspend *h)
 	info->work_state = NOTHING;
 	up(&info->work_lock);
 	return;
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	}
+#endif
+
 
 fail_late_resume:
 	dev_err(&info->client->dev, "failed to late resume\n");
@@ -1446,6 +1457,10 @@ static void zt7554_ts_early_suspend(struct early_suspend *h)
 
 	if (!info)
 		return;
+
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	if (!dt2w_switch) {
+#endif
 
 	disable_irq(info->irq);
 #if ESD_TIMER_INTERVAL
@@ -1480,6 +1495,10 @@ static void zt7554_ts_early_suspend(struct early_suspend *h)
 #endif
 	up(&info->work_lock);
 	return;
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	}
+#endif
+
 }
 #endif	/* CONFIG_HAS_EARLYSUSPEND */
 
@@ -3266,7 +3285,11 @@ static int zt7554_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		goto err_gpio_irq;
 	}
 	ret = request_threaded_irq(info->irq, NULL, zt7554_touch_work,
-		IRQF_TRIGGER_FALLING | IRQF_ONESHOT , ZT7554_TS_DEVICE, info);
+		IRQF_TRIGGER_FALLING | IRQF_ONESHOT 
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+			| IRQF_NO_SUSPEND
+#endif
+		, ZT7554_TS_DEVICE, info);
 
 	if (ret) {
 		dev_err(&client->dev, "failed to request irq.\n");

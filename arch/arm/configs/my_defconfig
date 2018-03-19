@@ -559,7 +559,7 @@ CONFIG_ATAGS=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
 # CONFIG_ARM_APPENDED_DTB is not set
-CONFIG_CMDLINE="init=/sbin/init root=/dev/ram rw initrd=0x11000000,16M console=ttyDCC0 mem=88M"
+CONFIG_CMDLINE="init=/sbin/init root=/dev/ram rw initrd=0x11000000,16M console=ttyDCC0 androidboot.selinux=permissive androidboot.hardware=sc8830"
 CONFIG_CMDLINE_FROM_BOOTLOADER=y
 # CONFIG_CMDLINE_EXTEND is not set
 # CONFIG_CMDLINE_FORCE is not set
@@ -1587,6 +1587,8 @@ CONFIG_INPUT_HEADSET_SPRD_SC2723=y
 # CONFIG_INPUT_LIS3DH_I2C is not set
 # CONFIG_INPUT_LIS3DH_ZT_I2C is not set
 # CONFIG_INPUT_LTR558_I2C is not set
+CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE=y
+CONFIG_TOUCHSCREEN_PREVENT_SLEEP=y
 
 #
 # Hardware I/O ports
